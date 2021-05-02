@@ -21,6 +21,7 @@ export class AppService {
         `https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/findByDistrict?district_id=${this.district}&date=${date}`
       );
       const body = await res.text();
+      Logger.log(body);
       const sessions = JSON.parse(body).sessions;
       const openSessions: any[] = sessions.filter(
         i => i.min_age_limit < 45 && i.available_capacity > 0,
