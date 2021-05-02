@@ -1,30 +1,25 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 // tslint:disable-next-line: no-var-requires
 const fetch = require('node-fetch');
 import * as moment from 'moment';
 import * as path from 'path';
 
-import low = require('lowdb');
-
-import FileSync = require('lowdb/adapters/FileSync');
-const adapter = new FileSync(
-  path.join('..', '.config', 'cowin-ping', 'data.json'),
-);
-
-const db = low(adapter);
-
-db.defaults({
-  subscribers: [{ email: 'sunaygandhi@gmail.com', name: 'Sunay Gandhi' }],
-}).write();
+import { Subscriber } from './entities/subscriber.entity';
+import { ReturnModelType } from '@typegoose/typegoose';
+import { InjectModel } from 'nestjs-typegoose';
 
 @Injectable()
 export class AppService {
   private readonly district = '395';
   private readonly logger = new Logger(AppService.name);
 
-  constructor(private readonly mailerService: MailerService) {
+  constructor(
+    private readonly mailerService: MailerService,
+    @InjectModel(Subscriber)
+    private readonly subscriberModel: ReturnModelType<typeof Subscriber>,
+  ) {
     this.getSessions();
   }
 
@@ -50,34 +45,31 @@ export class AppService {
 
       // send notification
       if (openSessions.length > 0) {
-        const emails = [
-          ...new Set(
-            db
-              .get('subscribers')
-              .map('email')
-              .value(),
-          ),
-        ];
+        const emails = (await this.subscriberModel.find().select('_id')).map(
+          i => i._id,
+        );
         const emailBody = openSessions.map(i => {
           return `${i.name}-${i.available_capacity} doses`;
         });
         this.mailerService.sendMail({
           to: 'sunaygandhi@gmail.com',
-          bcc: emails as string[],
+          bcc: emails,
           subject: `Vaccination Slots on ${date}`,
           text: emailBody.toString(),
         });
-        this.logger.log(`found ${openSessions.length} open sessions`);
+        this.logger.log(
+          `found ${openSessions.length} open sessions and sent ${emails.length} emails`,
+        );
       }
     } catch (e) {
       this.logger.error(e);
     }
   }
 
-  addSubscribers(name, email) {
-    db.get('subscribers')
-      .push({ name, email })
-      .write();
-    return { name, email };
+  // tslint:disable-next-line: variable-name
+  async addSubscribers(name: string, _id: string) {
+    return this.subscriberModel.create({ name, _id }).catch(error => {
+      throw new ConflictException('duplicate subscriber');
+    });
   }
 }
