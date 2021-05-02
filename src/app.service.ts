@@ -19,7 +19,10 @@ export class AppService {
     fetch(
       `https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/findByDistrict?district_id=${this.district}&date=${date}`,
     )
-      .then(res => res.text())
+      .then(
+        res => res.text(),
+        error => Logger.error('error fetching data', error),
+      )
       .then(body => {
         const sessions = JSON.parse(body).sessions;
         const openSessions: any[] = sessions.filter(
