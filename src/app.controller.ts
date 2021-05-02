@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post, Render } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -6,7 +6,14 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
-    return 'hello';
+  @Render('index')
+  root() {
+    return { message: 'Hello world!' };
+  }
+
+  @Post('/subscribe')
+  @Render('subscribe')
+  postSubscribers(@Body('name') name: string, @Body('email') email: string) {
+    return this.appService.addSubscribers(name, email);
   }
 }
